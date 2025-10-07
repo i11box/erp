@@ -1,0 +1,30 @@
+{
+  "name": "inventory-management-frontend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest --run"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.1.0",
+    "axios": "^1.6.2",
+    "chart.js": "^4.4.0",
+    "element-plus": "^2.4.4",
+    "inventory-management-frontend": "file:",
+    "pinia": "^2.1.7",
+    "vue": "^3.3.8",
+    "vue-chartjs": "^5.2.0",
+    "vue-router": "^4.2.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.4",
+    "@vue/test-utils": "^2.4.2",
+    "typescript": "^5.2.2",
+    "vite": "^6.3.6",
+    "vitest": "^3.2.4",
+    "vue-tsc": "^3.1.1"
+  }
+}
