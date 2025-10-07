@@ -12,6 +12,7 @@
     "@element-plus/icons-vue": "^2.1.0",
     "axios": "^1.6.2",
     "chart.js": "^4.4.0",
+    "echarts": "^6.0.0",
     "element-plus": "^2.4.4",
     "inventory-management-frontend": "file:",
     "pinia": "^2.1.7",
