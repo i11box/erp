@@ -195,11 +195,11 @@ const loadSalesReport = async () => {
         tooltip: { trigger: 'axis' },
         xAxis: {
           type: 'category',
-          data: response.map((item: any) => item.period)
+          data: response.data.map((item: any) => item.period)
         },
         yAxis: { type: 'value' },
         series: [{
-          data: response.map((item: any) => item.total_amount),
+          data: response.data.map((item: any) => item.total_amount),
           type: 'line',
           smooth: true,
           areaStyle: {}
@@ -232,11 +232,11 @@ const loadPurchaseReport = async () => {
         tooltip: { trigger: 'axis' },
         xAxis: {
           type: 'category',
-          data: response.map((item: any) => item.period)
+          data: response.data.map((item: any) => item.period)
         },
         yAxis: { type: 'value' },
         series: [{
-          data: response.map((item: any) => item.total_amount),
+          data: response.data.map((item: any) => item.total_amount),
           type: 'line',
           smooth: true,
           areaStyle: {}
@@ -259,7 +259,7 @@ const loadTopProducts = async () => {
         limit: 10
       }
     })
-    topProducts.value = response
+    topProducts.value = response.data
   } catch (error) {
     ElMessage.error('加载热销商品失败')
   }
@@ -275,7 +275,7 @@ const loadTopCustomers = async () => {
         limit: 10
       }
     })
-    topCustomers.value = response
+    topCustomers.value = response.data
   } catch (error) {
     ElMessage.error('加载重要客户失败')
   }
@@ -283,8 +283,10 @@ const loadTopCustomers = async () => {
 
 // Load profit analysis
 const loadProfitAnalysis = async () => {
-  const dateRange = profitDateRange.value || getDateRange()
-
+  // const dateRange = profitDateRange.value || getDateRange()
+  let dateRange = profitDateRange.value
+    ? { start: profitDateRange.value[0], end: profitDateRange.value[1] }
+    : getDateRange()
   try {
     const response = await api.get('/analytics/profit-analysis', {
       params: {

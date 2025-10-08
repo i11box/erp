@@ -63,7 +63,7 @@
       </el-table>
 
       <el-pagination
-        v-model:current-page="currentPage"
+        current-page="currentPage"
         :page-size="pageSize"
         :page-sizes="[10, 20, 50, 100]"
         :total="total"
@@ -194,9 +194,9 @@ const loadSuppliers = async () => {
     }
 
     const response = await api.get('/suppliers', { params })
-    suppliers.value = response
+    suppliers.value = response.data
     // Note: The API should return paginated data, but for now we assume it returns an array
-    total.value = response.length
+    total.value = response.data.length
   } catch (error) {
     ElMessage.error('加载供应商列表失败')
   } finally {
@@ -228,9 +228,12 @@ const openAddDialog = () => {
   showDialog.value = true
 }
 
+const currentSupplier = ref<Supplier | null>(null)
+
 // Edit supplier
 const editSupplier = (supplier: Supplier) => {
   editingSupplier.value = true
+  currentSupplier.value = supplier
   Object.assign(supplierForm, supplier)
   showDialog.value = true
 }
@@ -266,8 +269,8 @@ const saveSupplier = async () => {
     await supplierFormRef.value.validate()
     saving.value = true
 
-    if (editingSupplier.value) {
-      await api.put(`/suppliers/${editingSupplier.value.id}`, supplierForm)
+    if (editingSupplier.value && currentSupplier.value) {
+      await api.put(`/suppliers/${currentSupplier.value.id}`, supplierForm)
       ElMessage.success('更新成功')
     } else {
       await api.post('/suppliers', supplierForm)
