@@ -50,7 +50,7 @@
         </el-table-column>
         <el-table-column prop="total_amount" label="总金额">
           <template #default="scope">
-            ¥{{ scope.row.total_amount.toFixed(2) }}
+            ¥{{ (scope.row.total_amount || 0).toFixed(2) }}
           </template>
         </el-table-column>
         <el-table-column prop="status" label="状态">
@@ -179,7 +179,7 @@
           </el-table-column>
           <el-table-column label="小计" width="120">
             <template #default="scope">
-              ¥{{ (scope.row.quantity * scope.row.unit_price).toFixed(2) }}
+              ¥{{ (scope.row.quantity * scope.row.unit_price || 0).toFixed(2) }}
             </template>
           </el-table-column>
           <el-table-column label="操作" width="80">
@@ -191,7 +191,7 @@
 
         <el-row style="margin-top: 20px;">
           <el-col :span="24" style="text-align: right;">
-            <span style="font-size: 16px; font-weight: bold;">总计：¥{{ totalAmount.toFixed(2) }}</span>
+            <span style="font-size: 16px; font-weight: bold;">总计：¥{{ (totalAmount || 0).toFixed(2) }}</span>
           </el-col>
         </el-row>
       </el-form>
@@ -217,7 +217,7 @@
             {{ getStatusText(selectedSale?.status??'') }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="总金额">¥{{ selectedSale?.total_amount.toFixed(2) }}</el-descriptions-item>
+        <el-descriptions-item label="总金额">¥{{ (selectedSale?.total_amount || 0).toFixed(2) }}</el-descriptions-item>
         <el-descriptions-item label="备注">{{ selectedSale?.notes || '-' }}</el-descriptions-item>
       </el-descriptions>
 
@@ -229,12 +229,12 @@
         <el-table-column prop="quantity" label="数量" />
         <el-table-column prop="unit_price" label="单价">
           <template #default="scope">
-            ¥{{ scope.row.unit_price.toFixed(2) }}
+            ¥{{ (scope.row.unit_price || 0).toFixed(2) }}
           </template>
         </el-table-column>
         <el-table-column prop="total_price" label="小计">
           <template #default="scope">
-            ¥{{ scope.row.total_price.toFixed(2) }}
+            ¥{{ (scope.row.total_price || 0).toFixed(2) }}
           </template>
         </el-table-column>
       </el-table>
@@ -243,11 +243,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, reactive, computed } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
+import api from '@/services/api'
 
 const authStore = useAuthStore()
 
@@ -322,39 +323,42 @@ const rules: FormRules = {
 }
 
 const totalAmount = computed(() => {
-  return form.items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0)
+  return form.items.reduce((sum, item) => sum + (item.quantity * item.unit_price || 0), 0)
 })
 
 const getSales = async () => {
   loading.value = true
   try {
-    const token = authStore.token
-    let url = `/api/sales/?skip=${(currentPage.value - 1) * pageSize.value}&limit=${pageSize.value}`
-    if (searchQuery.value) {
-      url += `&search=${searchQuery.value}`
+    const params: any = {
+      skip: (currentPage.value - 1) * pageSize.value,
+      limit: pageSize.value,
+      search: searchQuery.value || undefined,
+      status: statusFilter.value || undefined
     }
-    if (statusFilter.value) {
-      url += `&status=${statusFilter.value}`
-    }
+    
     if (dateRange.value && dateRange.value.length === 2) {
-      url += `&start_date=${dateRange.value[0].toISOString().split('T')[0]}&end_date=${dateRange.value[1].toISOString().split('T')[0]}`
+      params.start_date = dateRange.value[0].toISOString().split('T')[0]
+      params.end_date = dateRange.value[1].toISOString().split('T')[0]
     }
 
-    const response = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-    if (response.ok) {
-      const data = await response.json()
-      sales.value = data
-      total.value = data.length
+    const response = await api.get('/sales', { params })
+    
+    // Handle both array and paginated response
+    if (Array.isArray(response)) {
+      sales.value = response
+      total.value = response.length
+    } else if (response && Array.isArray(response.items)) {
+      sales.value = response.items
+      total.value = response.total || response.items.length
     } else {
-      ElMessage.error('获取销售订单列表失败')
+      sales.value = []
+      total.value = 0
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取销售订单列表失败:', error)
-    ElMessage.error('获取销售订单列表失败')
+    ElMessage.error(`获取销售订单列表失败: ${error.response?.data?.detail || error.message || '未知错误'}`)
+    sales.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }
@@ -362,16 +366,8 @@ const getSales = async () => {
 
 const getCustomers = async () => {
   try {
-    const token = authStore.token
-    const response = await fetch('/api/customers/', {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-    if (response.ok) {
-      const data = await response.json()
-      customers.value = data
-    }
+    const response = await api.get('/customers')
+    customers.value = response.data || response || []
   } catch (error) {
     console.error('获取客户列表失败:', error)
   }
@@ -379,16 +375,8 @@ const getCustomers = async () => {
 
 const getProducts = async () => {
   try {
-    const token = authStore.token
-    const response = await fetch('/api/products/', {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-    if (response.ok) {
-      const data = await response.json()
-      products.value = data
-    }
+    const response = await api.get('/products')
+    products.value = response.data || response || []
   } catch (error) {
     console.error('获取商品列表失败:', error)
   }

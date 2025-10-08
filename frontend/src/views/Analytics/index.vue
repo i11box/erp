@@ -60,7 +60,7 @@
               <el-table-column prop="total_quantity" label="销量" width="100" />
               <el-table-column prop="total_revenue" label="销售额" width="120">
                 <template #default="scope">
-                  ¥{{ scope.row.total_revenue.toFixed(2) }}
+                  ¥{{ (scope.row.total_revenue || 0).toFixed(2) }}
                 </template>
               </el-table-column>
             </el-table>
@@ -78,7 +78,7 @@
               <el-table-column prop="order_count" label="订单数" width="100" />
               <el-table-column prop="total_spent" label="消费金额" width="120">
                 <template #default="scope">
-                  ¥{{ scope.row.total_spent.toFixed(2) }}
+                  ¥{{ (scope.row.total_spent || 0).toFixed(2) }}
                 </template>
               </el-table-column>
             </el-table>
@@ -107,25 +107,25 @@
               <el-col :span="6">
                 <div class="profit-item">
                   <div class="profit-label">销售收入</div>
-                  <div class="profit-value revenue">¥{{ profitAnalysis.sales_revenue.toFixed(2) }}</div>
+                  <div class="profit-value revenue">¥{{ (profitAnalysis.sales_revenue || 0).toFixed(2) }}</div>
                 </div>
               </el-col>
               <el-col :span="6">
                 <div class="profit-item">
                   <div class="profit-label">销售成本</div>
-                  <div class="profit-value cost">¥{{ profitAnalysis.sales_cost.toFixed(2) }}</div>
+                  <div class="profit-value cost">¥{{ (profitAnalysis.sales_cost || 0).toFixed(2) }}</div>
                 </div>
               </el-col>
               <el-col :span="6">
                 <div class="profit-item">
                   <div class="profit-label">毛利润</div>
-                  <div class="profit-value gross-profit">¥{{ profitAnalysis.gross_profit.toFixed(2) }}</div>
+                  <div class="profit-value gross-profit">¥{{ (profitAnalysis.gross_profit || 0).toFixed(2) }}</div>
                 </div>
               </el-col>
               <el-col :span="6">
                 <div class="profit-item">
                   <div class="profit-label">净利润</div>
-                  <div class="profit-value net-profit">¥{{ profitAnalysis.net_profit.toFixed(2) }}</div>
+                  <div class="profit-value net-profit">¥{{ (profitAnalysis.net_profit || 0).toFixed(2) }}</div>
                 </div>
               </el-col>
             </el-row>
@@ -189,17 +189,18 @@ const loadSalesReport = async () => {
       }
     })
 
-    if (salesChart) {
+    const data = response.data || response
+    if (salesChart && Array.isArray(data)) {
       const option = {
         title: { text: '销售趋势' },
         tooltip: { trigger: 'axis' },
         xAxis: {
           type: 'category',
-          data: response.data.map((item: any) => item.period)
+          data: data.map((item: any) => item.period || item.date)
         },
         yAxis: { type: 'value' },
         series: [{
-          data: response.data.map((item: any) => item.total_amount),
+          data: data.map((item: any) => item.total_amount || 0),
           type: 'line',
           smooth: true,
           areaStyle: {}
@@ -207,8 +208,8 @@ const loadSalesReport = async () => {
       }
       salesChart.setOption(option)
     }
-  } catch (error) {
-    ElMessage.error('加载销售报表失败')
+  } catch (error: any) {
+    ElMessage.error(`加载销售报表失败: ${error.response?.data?.detail || error.message || '未知错误'}`)
   }
 }
 
@@ -226,17 +227,18 @@ const loadPurchaseReport = async () => {
       }
     })
 
-    if (purchaseChart) {
+    const data = response.data || response
+    if (purchaseChart && Array.isArray(data)) {
       const option = {
         title: { text: '采购趋势' },
         tooltip: { trigger: 'axis' },
         xAxis: {
           type: 'category',
-          data: response.data.map((item: any) => item.period)
+          data: data.map((item: any) => item.period || item.date)
         },
         yAxis: { type: 'value' },
         series: [{
-          data: response.data.map((item: any) => item.total_amount),
+          data: data.map((item: any) => item.total_amount || 0),
           type: 'line',
           smooth: true,
           areaStyle: {}
@@ -244,40 +246,42 @@ const loadPurchaseReport = async () => {
       }
       purchaseChart.setOption(option)
     }
-  } catch (error) {
-    ElMessage.error('加载采购报表失败')
+  } catch (error: any) {
+    ElMessage.error(`加载采购报表失败: ${error.response?.data?.detail || error.message || '未知错误'}`)
   }
 }
 
 // Load top products
 const loadTopProducts = async () => {
   try {
+    const range = getDateRange()
     const response = await api.get('/analytics/top-products', {
       params: {
-        start_date: formatDate(getDateRange().start),
-        end_date: formatDate(getDateRange().end),
+        start_date: formatDate(range.start),
+        end_date: formatDate(range.end),
         limit: 10
       }
     })
-    topProducts.value = response.data
-  } catch (error) {
-    ElMessage.error('加载热销商品失败')
+    topProducts.value = response.data || response || []
+  } catch (error: any) {
+    ElMessage.error(`加载热销商品失败: ${error.response?.data?.detail || error.message || '未知错误'}`)
   }
 }
 
 // Load top customers
 const loadTopCustomers = async () => {
   try {
+    const range = getDateRange()
     const response = await api.get('/analytics/top-customers', {
       params: {
-        start_date: formatDate(getDateRange().start),
-        end_date: formatDate(getDateRange().end),
+        start_date: formatDate(range.start),
+        end_date: formatDate(range.end),
         limit: 10
       }
     })
-    topCustomers.value = response.data
-  } catch (error) {
-    ElMessage.error('加载重要客户失败')
+    topCustomers.value = response.data || response || []
+  } catch (error: any) {
+    ElMessage.error(`加载重要客户失败: ${error.response?.data?.detail || error.message || '未知错误'}`)
   }
 }
 
@@ -294,9 +298,15 @@ const loadProfitAnalysis = async () => {
         end_date: formatDate(dateRange.end)
       }
     })
-    Object.assign(profitAnalysis, response)
-  } catch (error) {
-    ElMessage.error('加载利润分析失败')
+    
+    Object.assign(profitAnalysis, {
+      sales_revenue: response.sales_revenue || 0,
+      sales_cost: response.sales_cost || 0,
+      gross_profit: response.gross_profit || 0,
+      net_profit: response.net_profit || 0
+    })
+  } catch (error: any) {
+    ElMessage.error(`加载利润分析失败: ${error.response?.data?.detail || error.message || '未知错误'}`)
   }
 }
 

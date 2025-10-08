@@ -59,12 +59,12 @@
             </el-table-column>
             <el-table-column prop="unit_cost" label="单位成本">
               <template #default="scope">
-                ¥{{ scope.row.unit_cost.toFixed(2) }}
+                ¥{{ (scope.row.unit_cost || 0).toFixed(2) }}
               </template>
             </el-table-column>
             <el-table-column prop="total_value" label="库存价值">
               <template #default="scope">
-                ¥{{ (scope.row.quantity * scope.row.unit_cost).toFixed(2) }}
+                ¥{{ (scope.row.quantity * scope.row.unit_cost || 0).toFixed(2) }}
               </template>
             </el-table-column>
             <el-table-column label="操作" width="200">
@@ -98,7 +98,7 @@
       <el-descriptions :column="2" border>
         <el-descriptions-item label="商品种类">{{ summary.total_products }}</el-descriptions-item>
         <el-descriptions-item label="总库存数量">{{ summary.total_quantity }}</el-descriptions-item>
-        <el-descriptions-item label="库存总价值">¥{{ summary.total_value.toFixed(2) }}</el-descriptions-item>
+        <el-descriptions-item label="库存总价值">¥{{ (summary.total_value || 0).toFixed(2) }}</el-descriptions-item>
         <el-descriptions-item label="低库存商品">{{ summary.low_stock_count }}</el-descriptions-item>
         <el-descriptions-item label="缺货商品">{{ summary.out_of_stock_count }}</el-descriptions-item>
         <el-descriptions-item label="正常商品">{{ summary.normal_stock_count }}</el-descriptions-item>
@@ -185,7 +185,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, Warning, CircleClose, Edit, DataLine } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
@@ -311,27 +311,17 @@ const getInventory = async () => {
 const getLowStockInventory = async () => {
   loading.value = true
   try {
-    const token = authStore.token
-    const response = await fetch('/api/inventory/low-stock', {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-    if (response.ok) {
-      const data = await response.json()
-      inventory.value = data
-      total.value = data.length
-      if (data.length === 0) {
-        ElMessage.success('所有商品库存充足')
-      } else {
-        ElMessage.warning(`发现 ${data.length} 个库存不足的商品`)
-      }
+    const response = await api.get('/inventory/low-stock')
+    inventory.value = response.data || response || []
+    total.value = inventory.value.length
+    if (inventory.value.length === 0) {
+      ElMessage.success('所有商品库存充足')
     } else {
-      ElMessage.error('获取库存预警商品失败')
+      ElMessage.warning(`发现 ${inventory.value.length} 个库存不足的商品`)
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取库存预警商品失败:', error)
-    ElMessage.error('获取库存预警商品失败')
+    ElMessage.error(`获取库存预警商品失败: ${error.response?.data?.detail || error.message || '未知错误'}`)
   } finally {
     loading.value = false
   }
@@ -340,27 +330,17 @@ const getLowStockInventory = async () => {
 const getOutOfStockInventory = async () => {
   loading.value = true
   try {
-    const token = authStore.token
-    const response = await fetch('/api/inventory/out-of-stock', {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-    if (response.ok) {
-      const data = await response.json()
-      inventory.value = data
-      total.value = data.length
-      if (data.length === 0) {
-        ElMessage.success('没有缺货商品')
-      } else {
-        ElMessage.warning(`发现 ${data.length} 个缺货商品`)
-      }
+    const response = await api.get('/inventory/out-of-stock')
+    inventory.value = response.data || response || []
+    total.value = inventory.value.length
+    if (inventory.value.length === 0) {
+      ElMessage.success('没有缺货商品')
     } else {
-      ElMessage.error('获取缺货商品失败')
+      ElMessage.warning(`发现 ${inventory.value.length} 个缺货商品`)
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取缺货商品失败:', error)
-    ElMessage.error('获取缺货商品失败')
+    ElMessage.error(`获取缺货商品失败: ${error.response?.data?.detail || error.message || '未知错误'}`)
   } finally {
     loading.value = false
   }
@@ -368,22 +348,19 @@ const getOutOfStockInventory = async () => {
 
 const getInventorySummary = async () => {
   try {
-    const token = authStore.token
-    const response = await fetch('/api/inventory/summary', {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-    if (response.ok) {
-      const data = await response.json()
-      summary.value = data
-      summaryVisible.value = true
-    } else {
-      ElMessage.error('获取库存汇总失败')
+    const response = await api.get('/inventory/summary')
+    summary.value = {
+      total_products: response.total_products || 0,
+      total_quantity: response.total_quantity || 0,
+      total_value: response.total_value || 0,
+      low_stock_count: response.low_stock_count || 0,
+      out_of_stock_count: response.out_of_stock_count || 0,
+      normal_stock_count: response.normal_stock_count || 0
     }
-  } catch (error) {
+    summaryVisible.value = true
+  } catch (error: any) {
     console.error('获取库存汇总失败:', error)
-    ElMessage.error('获取库存汇总失败')
+    ElMessage.error(`获取库存汇总失败: ${error.response?.data?.detail || error.message || '未知错误'}`)
   }
 }
 
@@ -478,21 +455,11 @@ const viewMovements = async (item: InventoryItem) => {
   movementsLoading.value = true
   movementsVisible.value = true
   try {
-    const token = authStore.token
-    const response = await fetch(`/api/inventory/movements/?product_id=${item.product_id}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-    if (response.ok) {
-      const data = await response.json()
-      movements.value = data
-    } else {
-      ElMessage.error('获取库存变动记录失败')
-    }
-  } catch (error) {
+    const response = await api.get(`/inventory/movements/?product_id=${item.product_id}`)
+    movements.value = response.data || response || []
+  } catch (error: any) {
     console.error('获取库存变动记录失败:', error)
-    ElMessage.error('获取库存变动记录失败')
+    ElMessage.error(`获取库存变动记录失败: ${error.response?.data?.detail || error.message || '未知错误'}`)
   } finally {
     movementsLoading.value = false
   }

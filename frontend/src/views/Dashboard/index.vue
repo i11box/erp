@@ -69,9 +69,9 @@
             </div>
           </template>
           <el-table :data="lowStockItems" style="width: 100%">
-            <el-table-column prop="product.name" label="商品名称" />
+            <el-table-column prop="product_name" label="商品名称" />
             <el-table-column prop="quantity" label="当前库存" width="100" />
-            <el-table-column prop="product.reorder_level" label="预警值" width="100" />
+            <el-table-column prop="min_stock" label="预警值" width="100" />
             <el-table-column label="状态" width="100">
               <template #default="scope">
                 <el-tag
@@ -122,7 +122,7 @@
             </div>
             <div class="overview-item">
               <div class="overview-label">缺货商品</div>
-              <div class="overview-value">{{ dashboardData.inventory.out_of_stock_items }}</div>
+              <div class="overview-value">{{ dashboardData.inventory.out_of_stock_products }}</div>
             </div>
           </div>
         </el-card>
@@ -192,23 +192,23 @@ const loadDashboardData = async () => {
     if (response && typeof response === 'object') {
       dashboardData.value = {
         sales: {
-          today: response.sales_today || 0,
-          month: response.sales_month || 0,
-          year: response.sales_year || 0
+          today: response.sales?.today || response.sales_today || 0,
+          month: response.sales?.month || response.sales_month || 0,
+          year: response.sales?.year || response.sales_year || 0
         },
         purchases: {
-          today: response.purchases_today || 0,
-          month: response.purchases_month || 0
+          today: response.purchases?.today || response.purchases_today || 0,
+          month: response.purchases?.month || response.purchases_month || 0
         },
         inventory: {
-          total_products: response.total_products || 0,
-          low_stock_products: response.low_stock_products || 0,
-          out_of_stock_products: response.out_of_stock_products || 0,
-          total_inventory_value: response.total_inventory_value || 0
+          total_products: response.inventory?.total_products || response.total_products || 0,
+          low_stock_products: response.inventory?.low_stock_products || response.low_stock_products || 0,
+          out_of_stock_products: response.inventory?.out_of_stock_products || response.out_of_stock_products || 0,
+          total_inventory_value: response.inventory?.total_inventory_value || response.total_inventory_value || 0
         },
         counts: {
-          customers: response.total_customers || 0,
-          suppliers: response.total_suppliers || 0
+          customers: response.counts?.customers || response.total_customers || 0,
+          suppliers: response.counts?.suppliers || response.total_suppliers || 0
         }
       }
     } else {
@@ -254,9 +254,10 @@ const loadLowStockItems = async () => {
     const response = await api.get('/inventory/low-stock', {
       params: { limit: 5 }
     })
-    lowStockItems.value = response
+    lowStockItems.value = response.data || response || []
   } catch (error) {
     console.error('加载库存不足商品失败:', error)
+    lowStockItems.value = []
   }
 }
 
@@ -278,7 +279,8 @@ const loadSalesChart = async () => {
 
     console.log('销售图表数据响应:', response)
 
-    if (salesChart && response && Array.isArray(response)) {
+    if (salesChart && response) {
+      const data = response.data || response
       const option = {
         title: { text: '最近7天销售趋势', left: 'center' },
         tooltip: {
@@ -287,14 +289,14 @@ const loadSalesChart = async () => {
         },
         xAxis: {
           type: 'category',
-          data: response.map((item: any) => formatChartDate(item.period || item.date))
+          data: data.map((item: any) => formatChartDate(item.period || item.date))
         },
         yAxis: {
           type: 'value',
           name: '销售额 (¥)'
         },
         series: [{
-          data: response.map((item: any) => item.total_amount || 0),
+          data: data.map((item: any) => item.total_amount || 0),
           type: 'line',
           smooth: true,
           areaStyle: {

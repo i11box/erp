@@ -35,12 +35,12 @@
         <el-table-column prop="category" label="分类" />
         <el-table-column prop="price" label="售价">
           <template #default="scope">
-            ¥{{ scope.row.price.toFixed(2) }}
+            ¥{{ (scope.row.price || 0).toFixed(2) }}
           </template>
         </el-table-column>
         <el-table-column prop="cost" label="成本">
           <template #default="scope">
-            ¥{{ scope.row.cost.toFixed(2) }}
+            ¥{{ (scope.row.cost || 0).toFixed(2) }}
           </template>
         </el-table-column>
         <el-table-column label="库存信息">
@@ -172,11 +172,11 @@
         </span>
       </template>
     </el-dialog>
-  </div>
+  </div> 
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, reactive } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Warning } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
@@ -251,10 +251,13 @@ const getProducts = async () => {
   loading.value = true
   try {
     console.log('正在获取商品列表...')
-    const params = {
+    const params: any = {
       skip: (currentPage.value - 1) * pageSize.value,
-      limit: pageSize.value,
-      search: searchQuery.value || undefined
+      limit: pageSize.value
+    }
+    
+    if (searchQuery.value) {
+      params.search = searchQuery.value
     }
 
     const response = await api.get('/products', { params })
@@ -286,27 +289,17 @@ const getProducts = async () => {
 const getLowStockProducts = async () => {
   loading.value = true
   try {
-    const token = authStore.token
-    const response = await fetch('/api/products/low-stock', {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-    if (response.ok) {
-      const data = await response.json()
-      products.value = data
-      total.value = data.length
-      if (data.length === 0) {
-        ElMessage.success('所有商品库存充足')
-      } else {
-        ElMessage.warning(`发现 ${data.length} 个库存不足的商品`)
-      }
+    const response = await api.get('/products/low-stock')
+    products.value = response.data || response || []
+    total.value = products.value.length
+    if (products.value.length === 0) {
+      ElMessage.success('所有商品库存充足')
     } else {
-      ElMessage.error('获取库存预警商品失败')
+      ElMessage.warning(`发现 ${products.value.length} 个库存不足的商品`)
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取库存预警商品失败:', error)
-    ElMessage.error('获取库存预警商品失败')
+    ElMessage.error(`获取库存预警商品失败: ${error.response?.data?.detail || error.message || '未知错误'}`)
   } finally {
     loading.value = false
   }
@@ -365,17 +358,20 @@ const handleSubmit = async () => {
     if (valid) {
       submitting.value = true
       try {
-        const token = authStore.token
-        const url = isEdit.value ? `/api/products/${form.id}` : '/api/products/'
-        const method = isEdit.value ? 'PUT' : 'POST'
-
-        const response = await fetch(url, {
-          method,
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
+        if (isEdit.value) {
+          await api.put(`/products/${form.id}`, {
+            name: form.name,
+            sku: form.sku,
+            category: form.category,
+            description: form.description,
+            price: form.price,
+            cost: form.cost,
+            unit: form.unit,
+            min_stock: form.min_stock
+          })
+          ElMessage.success('商品更新成功')
+        } else {
+          await api.post('/products', {
             name: form.name,
             sku: form.sku,
             category: form.category,
@@ -386,19 +382,13 @@ const handleSubmit = async () => {
             min_stock: form.min_stock,
             initial_stock: form.initial_stock
           })
-        })
-
-        if (response.ok) {
-          ElMessage.success(isEdit.value ? '商品更新成功' : '商品创建成功')
-          dialogVisible.value = false
-          getProducts()
-        } else {
-          const error = await response.json()
-          ElMessage.error(error.detail || '操作失败')
+          ElMessage.success('商品创建成功')
         }
-      } catch (error) {
+        dialogVisible.value = false
+        getProducts()
+      } catch (error: any) {
         console.error('操作失败:', error)
-        ElMessage.error('操作失败')
+        ElMessage.error(`操作失败: ${error.response?.data?.detail || error.message || '未知错误'}`)
       } finally {
         submitting.value = false
       }
@@ -417,24 +407,12 @@ const deleteProduct = (product: Product) => {
     }
   ).then(async () => {
     try {
-      const token = authStore.token
-      const response = await fetch(`/api/products/${product.id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-
-      if (response.ok) {
-        ElMessage.success('商品删除成功')
-        getProducts()
-      } else {
-        const error = await response.json()
-        ElMessage.error(error.detail || '删除失败')
-      }
-    } catch (error) {
+      await api.delete(`/products/${product.id}`)
+      ElMessage.success('商品删除成功')
+      getProducts()
+    } catch (error: any) {
       console.error('删除失败:', error)
-      ElMessage.error('删除失败')
+      ElMessage.error(`删除失败: ${error.response?.data?.detail || error.message || '未知错误'}`)
     }
   })
 }
