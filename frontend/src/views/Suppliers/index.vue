@@ -198,12 +198,12 @@ const loadSuppliers = async () => {
     console.log('供应商数据响应:', response)
 
     // Handle both array and paginated response
-    if (Array.isArray(response.data)) {
-      suppliers.value = response.data
-      total.value = response.data.length
-    } else if (response.data && Array.isArray(response.data.items)) {
-      suppliers.value = response.data.items
-      total.value = response.data.total || response.data.items.length
+    if (Array.isArray(response)) {
+      suppliers.value = response
+      total.value = response.length
+    } else if (response && Array.isArray(response.items)) {
+      suppliers.value = response.items
+      total.value = response.total || response.items.length
     } else {
       suppliers.value = []
       total.value = 0

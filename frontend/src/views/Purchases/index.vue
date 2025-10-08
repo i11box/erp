@@ -232,7 +232,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, reactive, computed } from 'vue'
 import { ElMessage} from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
@@ -587,6 +587,15 @@ onMounted(() => {
   getPurchases()
   getSuppliers()
   getProducts()
+})
+
+onBeforeUnmount(() => {
+  // 清理组件状态
+  loading.value = false
+  submitting.value = false
+  dialogVisible.value = false
+  detailVisible.value = false
+  isEdit.value = false
 })
 </script>
 

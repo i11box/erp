@@ -243,7 +243,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive, computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, reactive, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
@@ -621,6 +621,15 @@ onMounted(() => {
   getSales()
   getCustomers()
   getProducts()
+})
+
+onBeforeUnmount(() => {
+  // 清理组件状态
+  loading.value = false
+  submitting.value = false
+  dialogVisible.value = false
+  detailVisible.value = false
+  isEdit.value = false
 })
 </script>
 
