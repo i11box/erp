@@ -176,11 +176,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, reactive } from 'vue'
+import { ref, onMounted, onBeforeUnmount, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Warning } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
+import api from '@/services/api'
 
 const authStore = useAuthStore()
 
@@ -249,22 +250,34 @@ const rules: FormRules = {
 const getProducts = async () => {
   loading.value = true
   try {
-    const token = authStore.token
-    const response = await fetch(`/api/products/?skip=${(currentPage.value - 1) * pageSize.value}&limit=${pageSize.value}&search=${searchQuery.value}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-    if (response.ok) {
-      const data = await response.json()
-      products.value = data
-      total.value = data.length
-    } else {
-      ElMessage.error('获取商品列表失败')
+    console.log('正在获取商品列表...')
+    const params = {
+      skip: (currentPage.value - 1) * pageSize.value,
+      limit: pageSize.value,
+      search: searchQuery.value || undefined
     }
-  } catch (error) {
+
+    const response = await api.get('/products', { params })
+    console.log('商品数据响应:', response)
+
+    // Handle both array and paginated response
+    if (Array.isArray(response)) {
+      products.value = response
+      total.value = response.length
+    } else if (response && Array.isArray(response.items)) {
+      products.value = response.items
+      total.value = response.total || response.items.length
+    } else {
+      products.value = []
+      total.value = 0
+    }
+
+    console.log('商品数据加载成功:', products.value.length, '条记录')
+  } catch (error: any) {
     console.error('获取商品列表失败:', error)
-    ElMessage.error('获取商品列表失败')
+    ElMessage.error(`获取商品列表失败: ${error.response?.data?.detail || error.message || '未知错误'}`)
+    products.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }
@@ -428,6 +441,14 @@ const deleteProduct = (product: Product) => {
 
 onMounted(() => {
   getProducts()
+})
+
+onBeforeUnmount(() => {
+  // 清理组件状态
+  loading.value = false
+  submitting.value = false
+  dialogVisible.value = false
+  isEdit.value = false
 })
 </script>
 

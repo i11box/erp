@@ -193,12 +193,28 @@ const loadSuppliers = async () => {
       search: searchText.value || undefined
     }
 
+    console.log('正在加载供应商数据...', params)
     const response = await api.get('/suppliers', { params })
-    suppliers.value = response.data
-    // Note: The API should return paginated data, but for now we assume it returns an array
-    total.value = response.data.length
-  } catch (error) {
-    ElMessage.error('加载供应商列表失败')
+    console.log('供应商数据响应:', response)
+
+    // Handle both array and paginated response
+    if (Array.isArray(response.data)) {
+      suppliers.value = response.data
+      total.value = response.data.length
+    } else if (response.data && Array.isArray(response.data.items)) {
+      suppliers.value = response.data.items
+      total.value = response.data.total || response.data.items.length
+    } else {
+      suppliers.value = []
+      total.value = 0
+    }
+
+    console.log('供应商数据加载成功:', suppliers.value.length, '条记录')
+  } catch (error: any) {
+    console.error('加载供应商数据失败:', error)
+    ElMessage.error(`加载供应商列表失败: ${error.response?.data?.detail || error.message || '未知错误'}`)
+    suppliers.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }

@@ -6,7 +6,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from sqlalchemy.orm import Session
 from app.database import engine, SessionLocal, Base
-from app.models import User, Supplier, Customer, Product, Inventory
+from app.models import User, Supplier, Customer, Product, Inventory, Purchase, Sale
 from app.core.auth import get_password_hash
 
 def init_db():

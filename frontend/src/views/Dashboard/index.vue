@@ -184,10 +184,65 @@ const lowStockItems = ref<any[]>([])
 const loadDashboardData = async () => {
   loading.value = true
   try {
+    console.log('正在加载仪表板数据...')
     const response = await api.get('/analytics/dashboard')
-    dashboardData.value = response
-  } catch (error) {
-    ElMessage.error('加载仪表板数据失败')
+    console.log('仪表板数据响应:', response)
+
+    // Handle response data structure
+    if (response && typeof response === 'object') {
+      dashboardData.value = {
+        sales: {
+          today: response.sales_today || 0,
+          month: response.sales_month || 0,
+          year: response.sales_year || 0
+        },
+        purchases: {
+          today: response.purchases_today || 0,
+          month: response.purchases_month || 0
+        },
+        inventory: {
+          total_products: response.total_products || 0,
+          low_stock_products: response.low_stock_products || 0,
+          out_of_stock_products: response.out_of_stock_products || 0,
+          total_inventory_value: response.total_inventory_value || 0
+        },
+        counts: {
+          customers: response.total_customers || 0,
+          suppliers: response.total_suppliers || 0
+        }
+      }
+    } else {
+      // Set default values if no data
+      dashboardData.value = {
+        sales: { today: 0, month: 0, year: 0 },
+        purchases: { today: 0, month: 0 },
+        inventory: {
+          total_products: 0,
+          low_stock_products: 0,
+          out_of_stock_products: 0,
+          total_inventory_value: 0
+        },
+        counts: { customers: 0, suppliers: 0 }
+      }
+    }
+
+    console.log('仪表板数据加载成功:', dashboardData.value)
+  } catch (error: any) {
+    console.error('加载仪表板数据失败:', error)
+    ElMessage.error(`加载仪表板数据失败: ${error.response?.data?.detail || error.message || '未知错误'}`)
+
+    // Set default values on error
+    dashboardData.value = {
+      sales: { today: 0, month: 0, year: 0 },
+      purchases: { today: 0, month: 0 },
+      inventory: {
+        total_products: 0,
+        low_stock_products: 0,
+        out_of_stock_products: 0,
+        total_inventory_value: 0
+      },
+      counts: { customers: 0, suppliers: 0 }
+    }
   } finally {
     loading.value = false
   }
@@ -208,6 +263,7 @@ const loadLowStockItems = async () => {
 // Load sales chart
 const loadSalesChart = async () => {
   try {
+    console.log('正在加载销售图表数据...')
     const endDate = new Date()
     const startDate = new Date()
     startDate.setDate(startDate.getDate() - 7) // 最近7天
@@ -220,7 +276,9 @@ const loadSalesChart = async () => {
       }
     })
 
-    if (salesChart) {
+    console.log('销售图表数据响应:', response)
+
+    if (salesChart && response && Array.isArray(response)) {
       const option = {
         title: { text: '最近7天销售趋势', left: 'center' },
         tooltip: {
@@ -229,14 +287,14 @@ const loadSalesChart = async () => {
         },
         xAxis: {
           type: 'category',
-          data: response.map((item: any) => formatChartDate(item.period))
+          data: response.map((item: any) => formatChartDate(item.period || item.date))
         },
         yAxis: {
           type: 'value',
           name: '销售额 (¥)'
         },
         series: [{
-          data: response.map((item: any) => item.total_amount),
+          data: response.map((item: any) => item.total_amount || 0),
           type: 'line',
           smooth: true,
           areaStyle: {
@@ -255,9 +313,23 @@ const loadSalesChart = async () => {
         }]
       }
       salesChart.setOption(option)
+      console.log('销售图表更新成功')
+    } else {
+      console.log('无销售数据或图表未初始化')
+      // 创建空数据的图表
+      if (salesChart) {
+        const option = {
+          title: { text: '最近7天销售趋势', left: 'center' },
+          xAxis: { type: 'category', data: [] },
+          yAxis: { type: 'value', name: '销售额 (¥)' },
+          series: [{ data: [], type: 'line' }]
+        }
+        salesChart.setOption(option)
+      }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('加载销售图表失败:', error)
+    ElMessage.error(`加载销售图表失败: ${error.response?.data?.detail || error.message || '未知错误'}`)
   }
 }
 

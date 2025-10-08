@@ -11,6 +11,7 @@
         background-color="#304156"
         text-color="#bfcbd9"
         active-text-color="#409EFF"
+        @select="handleMenuSelect"
       >
         <el-menu-item index="/dashboard">
           <el-icon><House /></el-icon>
@@ -68,7 +69,7 @@
       </el-header>
       
       <el-main class="main-content">
-        <router-view />
+        <router-view :key="$route.fullPath" />
       </el-main>
     </el-container>
   </el-container>
@@ -104,6 +105,12 @@ const handleCommand = async (command: string) => {
         // User cancelled
       }
       break
+  }
+}
+
+const handleMenuSelect = (index: string) => {
+  if (router.currentRoute.value.path !== index) {
+    router.push(index)
   }
 }
 
