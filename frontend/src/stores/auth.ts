@@ -33,6 +33,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const response: User = await api.get('/auth/me')
       user.value = response
+      isAuthenticated.value = true
     } catch (error) {
       logout()
       throw error

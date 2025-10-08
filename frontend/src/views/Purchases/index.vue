@@ -335,7 +335,12 @@ const getPurchases = async () => {
     }
   } catch (error: any) {
     console.error('获取采购订单列表失败:', error)
-    ElMessage.error(`获取采购订单列表失败: ${error.response?.data?.detail || error.message || '未知错误'}`)
+    // Check if it's an auth error
+    if (error.response?.status === 401) {
+      ElMessage.error('登录已过期，请重新登录')
+    } else {
+      ElMessage.error(`获取采购订单列表失败: ${error.response?.data?.detail || error.message || '未知错误'}`)
+    }
     purchases.value = []
     total.value = 0
   } finally {

@@ -31,7 +31,12 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       // Unauthorized - redirect to login
       localStorage.removeItem('token')
-      window.location.href = '/login'
+      // Only redirect if we're not already on the login page
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
+      // Return a resolved promise to prevent further error handling
+      return Promise.resolve({ data: null })
     }
     return Promise.reject(error)
   }

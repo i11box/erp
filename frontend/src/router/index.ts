@@ -74,16 +74,32 @@ const router = createRouter({
 })
 
 // Navigation guards
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
+  // Initialize the auth store
   const authStore = useAuthStore()
-
+  
   // Check if the route requires authentication
   if (to.meta.requiresAuth) {
+    // Check if user is authenticated
     if (!authStore.isAuthenticated) {
-      // Redirect to login page
-      next('/login')
+      // Try to restore auth state from localStorage
+      try {
+        const token = localStorage.getItem('token')
+        if (token) {
+          // Try to get current user to verify token
+          await authStore.getCurrentUser()
+          next()
+        } else {
+          // Redirect to login page
+          next('/login')
+        }
+      } catch (error) {
+        // Token is invalid, redirect to login
+        authStore.logout()
+        next('/login')
+      }
     } else {
-      // Proceed to route
+      // User is authenticated, proceed to route
       next()
     }
   } else {
