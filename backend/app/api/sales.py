@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from datetime import datetime
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_optional_user, get_db
 from app.crud import sale as sale_crud
 from app.crud import customer as customer_crud
 from app.models.user import User
@@ -21,7 +21,7 @@ def read_sales(
     status: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     date: Optional[str] = Query(None),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_optional_user)
 ):
     """获取销售订单列表"""
     if customer_id:
@@ -57,7 +57,7 @@ def create_sale(
     *,
     db: Session = Depends(get_db),
     sale_in: SaleCreate,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_optional_user)
 ):
     """创建销售订单"""
     # Validate customer exists
@@ -72,7 +72,7 @@ def create_sale(
     try:
         # Create sale with items (includes inventory check)
         sale = sale_crud.create_sale_with_items(
-            db, sale_in=sale_in, user_id=current_user.id
+            db, sale_in=sale_in, user_id=current_user.id if current_user else None
         )
         return sale
     except ValueError as e:
@@ -84,7 +84,7 @@ def read_sale(
     *,
     db: Session = Depends(get_db),
     sale_id: int,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_optional_user)
 ):
     """获取销售订单详情"""
     sale = sale_crud.get_with_items(db, id=sale_id)
@@ -99,44 +99,41 @@ def update_sale(
     db: Session = Depends(get_db),
     sale_id: int,
     sale_in: SaleUpdate,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_optional_user)
 ):
     """更新销售订单"""
     sale = sale_crud.get(db, id=sale_id)
     if not sale:
         raise HTTPException(status_code=404, detail="销售订单不存在")
-
+    
     # Only allow updating status for completed sales
     if sale.status == "completed":
         if sale_in.status and sale_in.status != sale.status:
             sale = sale_crud.update_status(
                 db, db_obj=sale, status=sale_in.status
             )
-        return sale
     else:
-        sale = sale_crud.update(
-            db, db_obj=sale, obj_in=sale_in
+        sale = sale_crud.update_sale_with_items(
+            db, db_obj=sale, sale_in=sale_in
         )
-        return sale
+    return sale
 
 
-@router.patch("/{sale_id}/status")
-def update_sale_status(
+@router.delete("/{sale_id}")
+def delete_sale(
     *,
     db: Session = Depends(get_db),
     sale_id: int,
-    status: str,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_optional_user)
 ):
-    """更新销售订单状态"""
+    """删除销售订单"""
     sale = sale_crud.get(db, id=sale_id)
     if not sale:
         raise HTTPException(status_code=404, detail="销售订单不存在")
-
-    if status not in ["pending", "completed", "cancelled"]:
-        raise HTTPException(status_code=400, detail="无效的状态值")
-
-    sale = sale_crud.update_status(
-        db, db_obj=sale, status=status
-    )
-    return {"message": f"销售订单状态已更新为: {status}"}
+    
+    # Don't allow deleting completed sales
+    if sale.status == "completed":
+        raise HTTPException(status_code=400, detail="已完成的销售订单不能删除")
+    
+    sale_crud.remove(db, id=sale_id)
+    return {"message": "销售订单删除成功"}

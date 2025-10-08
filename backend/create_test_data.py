@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from decimal import Decimal
 from app.database import engine, SessionLocal, Base
 from app.models import User, Supplier, Customer, Product, Inventory, Purchase, Sale, PurchaseItem, SaleItem
-from app.core.auth import get_password_hash
+from app.core.security import get_password_hash
 
 def create_test_data():
     """创建大量测试数据"""
@@ -45,6 +45,13 @@ def create_test_data():
         
         # 创建更多用户
         users = [
+            User(
+                username="admin",
+                email="admin@example.com",
+                password_hash=get_password_hash("admin123"),
+                role="admin",
+                is_active=True
+            ), 
             User(
                 username="manager1",
                 email="manager1@example.com",

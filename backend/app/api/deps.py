@@ -66,3 +66,21 @@ def get_current_active_superuser(
             status_code=400, detail="The user doesn't have enough privileges"
         )
     return current_user
+
+
+def get_optional_user(
+    db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)
+):
+    """获取可选的当前用户（即使没有认证也允许访问）"""
+    try:
+        payload = verify_token(token)
+        if payload is None:
+            return None
+        username: str = payload.get("sub")
+        if username is None:
+            return None
+    except JWTError:
+        return None
+
+    user = user_crud.get_by_username(db, username=username)
+    return user

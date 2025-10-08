@@ -2,7 +2,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_db
+from app.api.deps import get_optional_user, get_db
 from app.crud import purchase as purchase_crud
 from app.crud import supplier as supplier_crud
 from app.models.user import User
@@ -20,7 +20,7 @@ def read_purchases(
     supplier_id: Optional[int] = Query(None),
     status: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_optional_user)
 ):
     """获取采购订单列表"""
     if supplier_id:
@@ -47,7 +47,7 @@ def create_purchase(
     *,
     db: Session = Depends(get_db),
     purchase_in: PurchaseCreate,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_optional_user)
 ):
     """创建采购订单"""
     # Validate supplier exists
@@ -61,7 +61,7 @@ def create_purchase(
 
     # Create purchase with items
     purchase = purchase_crud.create_purchase_with_items(
-        db, purchase_in=purchase_in, user_id=current_user.id
+        db, purchase_in=purchase_in, user_id=current_user.id if current_user else None
     )
     return purchase
 
@@ -71,7 +71,7 @@ def read_purchase(
     *,
     db: Session = Depends(get_db),
     purchase_id: int,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_optional_user)
 ):
     """获取采购订单详情"""
     purchase = purchase_crud.get_with_items(db, id=purchase_id)
@@ -86,7 +86,7 @@ def update_purchase(
     db: Session = Depends(get_db),
     purchase_id: int,
     purchase_in: PurchaseUpdate,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_optional_user)
 ):
     """更新采购订单"""
     purchase = purchase_crud.get(db, id=purchase_id)
@@ -99,31 +99,28 @@ def update_purchase(
             purchase = purchase_crud.update_status(
                 db, db_obj=purchase, status=purchase_in.status
             )
-        return purchase
     else:
-        purchase = purchase_crud.update(
-            db, db_obj=purchase, obj_in=purchase_in
+        purchase = purchase_crud.update_purchase_with_items(
+            db, db_obj=purchase, purchase_in=purchase_in
         )
-        return purchase
+    return purchase
 
 
-@router.patch("/{purchase_id}/status")
-def update_purchase_status(
+@router.delete("/{purchase_id}")
+def delete_purchase(
     *,
     db: Session = Depends(get_db),
     purchase_id: int,
-    status: str,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_optional_user)
 ):
-    """更新采购订单状态"""
+    """删除采购订单"""
     purchase = purchase_crud.get(db, id=purchase_id)
     if not purchase:
         raise HTTPException(status_code=404, detail="采购订单不存在")
-
-    if status not in ["pending", "completed", "cancelled"]:
-        raise HTTPException(status_code=400, detail="无效的状态值")
-
-    purchase = purchase_crud.update_status(
-        db, db_obj=purchase, status=status
-    )
-    return {"message": f"采购订单状态已更新为: {status}"}
+    
+    # Don't allow deleting completed purchases
+    if purchase.status == "completed":
+        raise HTTPException(status_code=400, detail="已完成的采购订单不能删除")
+    
+    purchase_crud.remove(db, id=purchase_id)
+    return {"message": "采购订单删除成功"}
