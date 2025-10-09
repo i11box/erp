@@ -281,6 +281,29 @@ const loadSalesChart = async () => {
 
     if (salesChart && response) {
       const data = response.data || response
+      
+      // 生成完整的日期范围
+      const dateRange = []
+      const currentDate = new Date(startDate)
+      const end = new Date(endDate)
+      while (currentDate <= end) {
+        dateRange.push(new Date(currentDate))
+        currentDate.setDate(currentDate.getDate() + 1)
+      }
+      
+      // 创建完整的数据映射
+      const dataMap = new Map()
+      data.forEach((item: any) => {
+        const dateKey = item.period || item.date
+        dataMap.set(dateKey, item.total_amount || 0)
+      })
+      
+      // 构建完整的数据数组，包括没有销售数据的日期
+      const chartData = dateRange.map(date => {
+        const dateStr = formatDate(date)
+        return dataMap.get(dateStr) || 0
+      })
+      
       const option = {
         title: { text: '最近7天销售趋势', left: 'center' },
         tooltip: {
@@ -289,14 +312,14 @@ const loadSalesChart = async () => {
         },
         xAxis: {
           type: 'category',
-          data: data.map((item: any) => formatChartDate(item.period || item.date))
+          data: dateRange.map(date => formatChartDate(formatDate(date)))
         },
         yAxis: {
           type: 'value',
           name: '销售额 (¥)'
         },
         series: [{
-          data: data.map((item: any) => item.total_amount || 0),
+          data: chartData,
           type: 'line',
           smooth: true,
           areaStyle: {
@@ -347,13 +370,13 @@ const formatNumber = (num: number): string => {
   return num.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-const formatDate = (date: Date): string => {
-  return date.toISOString().split('T')[0]
-}
-
 const formatChartDate = (dateStr: string): string => {
   const date = new Date(dateStr)
   return `${date.getMonth() + 1}/${date.getDate()}`
+}
+
+const formatDate = (date: Date): string => {
+  return date.toISOString().split('T')[0]
 }
 
 onMounted(async () => {
