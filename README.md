@@ -68,6 +68,10 @@ cd erp
 
 ### 2. 后端设置
 ```bash
+# 创建环境
+conda create -n erp
+conda activate erp
+
 # 进入后端目录
 cd backend
 
@@ -78,13 +82,14 @@ pip install -r requirements.txt
 python create_models.py
 
 # 初始化示例数据
-python init_db.py
+# 登录时使用账户 manager1 / manager123
+python create_models.py
 ```
 
 ### 3. 启动后端服务
 ```bash
 # 启动FastAPI开发服务器
-python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+python start_server.py
 ```
 
 ### 4. 访问API文档
@@ -115,28 +120,6 @@ python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 - `PUT /api/products/{id}` - 更新商品
 - `DELETE /api/products/{id}` - 删除商品
 - `GET /api/products/low-stock` - 获取库存不足商品
-
-## 示例数据
-
-系统初始化时会创建以下示例数据：
-
-### 用户
-- 管理员: admin / admin123
-- 普通用户: user / user123
-
-### 供应商
-- 科技有限公司（张经理）
-- 电子产品批发商（李总）
-
-### 客户
-- ABC贸易公司（王经理）
-- XYZ零售店（赵老板）
-
-### 商品
-- 笔记本电脑（成本价: 3000, 售价: 4500）
-- 无线鼠标（成本价: 50, 售价: 80）
-- 机械键盘（成本价: 200, 售价: 350）
-- 显示器（成本价: 1500, 售价: 2200）
 
 ## 开发说明
 
@@ -175,45 +158,5 @@ pytest
 
 ### 性能测试
 ```bash
-cd backend
-locust -f tests/performance_test.py --host=http://localhost:8000
+locust -f performance_test.py --host=http://localhost:8000
 ```
-
-## 部署
-
-### Docker部署（待实现）
-```bash
-# 构建镜像
-docker-compose build
-
-# 启动服务
-docker-compose up -d
-```
-
-## 贡献指南
-
-1. Fork 项目
-2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 打开 Pull Request
-
-## 许可证
-
-本项目采用 MIT 许可证。详情请参阅 [LICENSE](LICENSE) 文件。
-
-## 联系方式
-
-如有问题或建议，请通过以下方式联系：
-- 邮箱: your-email@example.com
-- 项目地址: https://github.com/your-username/erp
-
-## 更新日志
-
-### v0.1.0 (2024-01-XX)
-- ✅ 完成项目基础架构搭建
-- ✅ 实现供应商管理API
-- ✅ 实现客户管理API
-- ✅ 实现商品管理API
-- ✅ 完成数据库模型设计
-- ✅ 添加用户认证功能
