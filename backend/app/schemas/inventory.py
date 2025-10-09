@@ -27,6 +27,31 @@ class Inventory(InventoryBase):
         from_attributes = True
 
 
+# 添加一个新的schema，包含产品信息
+class ProductInfo(BaseModel):
+    id: int
+    name: str
+    sku: Optional[str]
+    description: Optional[str]
+    unit: str
+    cost_price: Decimal
+    selling_price: Decimal
+    reorder_level: int
+
+    class Config:
+        from_attributes = True
+
+
+class InventoryWithProduct(InventoryBase):
+    id: int
+    product_id: int
+    last_updated: datetime
+    product: Optional[ProductInfo] = None
+
+    class Config:
+        from_attributes = True
+
+
 class InventoryMovementBase(BaseModel):
     movement_type: str = Field(..., max_length=20, description="移动类型(in/out/adjustment)")
     quantity: int = Field(..., description="移动数量")

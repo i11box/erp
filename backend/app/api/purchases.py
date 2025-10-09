@@ -20,7 +20,7 @@ def read_purchases(
     supplier_id: Optional[int] = Query(None),
     status: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
-    current_user: User = Depends(get_optional_user)
+    # current_user: User = Depends(get_optional_user)
 ):
     """获取采购订单列表"""
     if supplier_id:
@@ -47,7 +47,7 @@ def create_purchase(
     *,
     db: Session = Depends(get_db),
     purchase_in: PurchaseCreate,
-    current_user: User = Depends(get_optional_user)
+    # current_user: User = Depends(get_optional_user)
 ):
     """创建采购订单"""
     # Validate supplier exists
@@ -61,7 +61,7 @@ def create_purchase(
 
     # Create purchase with items
     purchase = purchase_crud.create_purchase_with_items(
-        db, purchase_in=purchase_in, user_id=current_user.id if current_user else None
+        db, purchase_in=purchase_in, user_id= None #current_user.id if current_user else None
     )
     return purchase
 
@@ -71,7 +71,7 @@ def read_purchase(
     *,
     db: Session = Depends(get_db),
     purchase_id: int,
-    current_user: User = Depends(get_optional_user)
+    # current_user: User = Depends(get_optional_user)
 ):
     """获取采购订单详情"""
     purchase = purchase_crud.get_with_items(db, id=purchase_id)
@@ -86,7 +86,7 @@ def update_purchase(
     db: Session = Depends(get_db),
     purchase_id: int,
     purchase_in: PurchaseUpdate,
-    current_user: User = Depends(get_optional_user)
+    # current_user: User = Depends(get_optional_user)
 ):
     """更新采购订单"""
     purchase = purchase_crud.get(db, id=purchase_id)
@@ -111,7 +111,7 @@ def delete_purchase(
     *,
     db: Session = Depends(get_db),
     purchase_id: int,
-    current_user: User = Depends(get_optional_user)
+    # current_user: User = Depends(get_optional_user)
 ):
     """删除采购订单"""
     purchase = purchase_crud.get(db, id=purchase_id)

@@ -21,7 +21,7 @@ def read_sales(
     status: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     date: Optional[str] = Query(None),
-    current_user: User = Depends(get_optional_user)
+    # # current_user: User = Depends(get_optional_user)
 ):
     """获取销售订单列表"""
     if customer_id:
@@ -57,7 +57,7 @@ def create_sale(
     *,
     db: Session = Depends(get_db),
     sale_in: SaleCreate,
-    current_user: User = Depends(get_optional_user)
+    # current_user: User = Depends(get_optional_user)
 ):
     """创建销售订单"""
     # Validate customer exists
@@ -72,7 +72,7 @@ def create_sale(
     try:
         # Create sale with items (includes inventory check)
         sale = sale_crud.create_sale_with_items(
-            db, sale_in=sale_in, user_id=current_user.id if current_user else None
+            db, sale_in=sale_in, user_id=None# user_id=current_user.id if current_user else None
         )
         return sale
     except ValueError as e:
@@ -84,7 +84,7 @@ def read_sale(
     *,
     db: Session = Depends(get_db),
     sale_id: int,
-    current_user: User = Depends(get_optional_user)
+    # current_user: User = Depends(get_optional_user)
 ):
     """获取销售订单详情"""
     sale = sale_crud.get_with_items(db, id=sale_id)
@@ -99,7 +99,7 @@ def update_sale(
     db: Session = Depends(get_db),
     sale_id: int,
     sale_in: SaleUpdate,
-    current_user: User = Depends(get_optional_user)
+    # current_user: User = Depends(get_optional_user)
 ):
     """更新销售订单"""
     sale = sale_crud.get(db, id=sale_id)
@@ -124,7 +124,7 @@ def delete_sale(
     *,
     db: Session = Depends(get_db),
     sale_id: int,
-    current_user: User = Depends(get_optional_user)
+    # current_user: User = Depends(get_optional_user)
 ):
     """删除销售订单"""
     sale = sale_crud.get(db, id=sale_id)

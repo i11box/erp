@@ -8,7 +8,7 @@ from app.api.deps import get_optional_user, get_db
 from app.crud import inventory as inventory_crud
 from app.crud import product as product_crud
 from app.models.user import User
-from app.schemas.inventory import Inventory, InventoryMovement, InventoryMovementCreate
+from app.schemas.inventory import InventoryWithProduct, InventoryMovement, InventoryMovementCreate
 
 router = APIRouter()
 
@@ -20,7 +20,7 @@ class InventoryAdjust(BaseModel):
     new_avg_cost: Optional[float] = None
 
 
-@router.get("/", response_model=List[Inventory])
+@router.get("/", response_model=List[InventoryWithProduct])
 def read_inventory(
     db: Session = Depends(get_db),
     skip: int = 0,
@@ -28,7 +28,7 @@ def read_inventory(
     search: Optional[str] = Query(None),
     low_stock: bool = Query(False),
     out_of_stock: bool = Query(False),
-    current_user: User = Depends(get_optional_user)
+    # current_user: User = Depends(get_optional_user)
 ):
     """获取库存列表"""
     if low_stock:
@@ -50,12 +50,12 @@ def read_inventory(
     return inventory_items
 
 
-@router.get("/low-stock", response_model=List[Inventory])
+@router.get("/low-stock", response_model=List[InventoryWithProduct])
 def read_low_stock_inventory(
     db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
-    current_user: User = Depends(get_optional_user)
+    # current_user: User = Depends(get_optional_user)
 ):
     """获取库存不足商品"""
     return inventory_crud.get_low_stock_items(
@@ -63,12 +63,12 @@ def read_low_stock_inventory(
     )
 
 
-@router.get("/out-of-stock", response_model=List[Inventory])
+@router.get("/out-of-stock", response_model=List[InventoryWithProduct])
 def read_out_of_stock_inventory(
     db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
-    current_user: User = Depends(get_optional_user)
+    # current_user: User = Depends(get_optional_user)
 ):
     """获取缺货商品"""
     return inventory_crud.get_out_of_stock_items(
@@ -79,18 +79,18 @@ def read_out_of_stock_inventory(
 @router.get("/summary")
 def read_inventory_summary(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_optional_user)
+    # current_user: User = Depends(get_optional_user)
 ):
     """获取库存汇总信息"""
     return inventory_crud.get_inventory_summary(db)
 
 
-@router.get("/{product_id}", response_model=Inventory)
+@router.get("/{product_id}", response_model=InventoryWithProduct)
 def read_product_inventory(
     *,
     db: Session = Depends(get_db),
     product_id: int,
-    current_user: User = Depends(get_optional_user)
+    # current_user: User = Depends(get_optional_user)
 ):
     """获取指定商品的库存信息"""
     inventory = inventory_crud.get_by_product(db, product_id=product_id)
@@ -104,7 +104,7 @@ def adjust_inventory(
     *,
     db: Session = Depends(get_db),
     adjustment: InventoryAdjust,
-    current_user: User = Depends(get_optional_user)
+    # current_user: User = Depends(get_optional_user)
 ):
     """调整库存数量"""
     # Validate product exists
@@ -122,7 +122,8 @@ def adjust_inventory(
         product_id=adjustment.product_id,
         adjustment_quantity=adjustment.adjustment_quantity,
         reason=adjustment.reason,
-        user_id=current_user.id if current_user else None,
+        # user_id=current_user.id if current_user else None,
+        user_id=None,
         new_avg_cost=adjustment.new_avg_cost
     )
 
@@ -138,7 +139,7 @@ def read_inventory_movements(
     movement_type: Optional[str] = Query(None),
     start_date: Optional[str] = Query(None),
     end_date: Optional[str] = Query(None),
-    current_user: User = Depends(get_optional_user)
+    # current_user: User = Depends(get_optional_user)
 ):
     """获取库存变动记录"""
     if product_id:
@@ -168,7 +169,7 @@ def read_product_movements(
     product_id: int,
     skip: int = 0,
     limit: int = 100,
-    current_user: User = Depends(get_optional_user)
+    # current_user: User = Depends(get_optional_user)
 ):
     """获取指定商品的库存变动记录"""
     # Validate product exists
