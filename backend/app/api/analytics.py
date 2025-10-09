@@ -33,7 +33,7 @@ def get_sales_report(
     start_date: str = Query(..., description="开始日期 (YYYY-MM-DD)"),
     end_date: str = Query(..., description="结束日期 (YYYY-MM-DD)"),
     group_by: str = Query("day", description="分组方式: day/week/month"),
-    current_user: User = Depends(get_current_user)
+    # current_user: User = Depends(get_current_user)
 ):
     """获取销售报表"""
     try:

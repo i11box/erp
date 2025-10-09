@@ -1,6 +1,6 @@
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import and_, or_, func, desc, extract
+from sqlalchemy import and_, or_, func, desc, extract, cast, String
 from datetime import datetime, timedelta
 from decimal import Decimal
 
@@ -131,36 +131,36 @@ class AnalyticsCRUD:
     ) -> List[Dict[str, Any]]:
         """获取销售报表"""
         if group_by == "day":
-            date_format = func.date(Sale.created_at)
+            date_col = cast(func.date(Sale.sale_date), String)
         elif group_by == "week":
-            date_format = func.date_trunc('week', Sale.created_at)
+            date_col = cast(func.date_trunc('week', Sale.sale_date), String)
         elif group_by == "month":
-            date_format = func.date_trunc('month', Sale.created_at)
+            date_col = cast(func.date_trunc('month', Sale.sale_date), String)
         else:
-            date_format = func.date(Sale.created_at)
+            date_col = cast(func.date(Sale.sale_date), String)
 
         sales_data = (
             db.query(
-                date_format.label('period'),
+                date_col.label('period'),
                 func.count(Sale.id).label('order_count'),
                 func.sum(Sale.total_amount).label('total_amount'),
                 func.avg(Sale.total_amount).label('avg_amount')
             )
             .filter(
                 and_(
-                    Sale.created_at >= start_date,
-                    Sale.created_at <= end_date,
+                    Sale.sale_date >= start_date,
+                    Sale.sale_date <= end_date,
                     Sale.status == "completed"
                 )
             )
-            .group_by(date_format)
-            .order_by(date_format)
+            .group_by(date_col)
+            .order_by(date_col)
             .all()
         )
 
         return [
             {
-                "period": str(item.period),
+                "period": item.period,
                 "order_count": item.order_count,
                 "total_amount": float(item.total_amount or 0),
                 "avg_amount": float(item.avg_amount or 0)
@@ -178,13 +178,13 @@ class AnalyticsCRUD:
     ) -> List[Dict[str, Any]]:
         """获取采购报表"""
         if group_by == "day":
-            date_format = func.date(Purchase.created_at)
+            date_format = func.date(Purchase.purchase_date)
         elif group_by == "week":
-            date_format = func.date_trunc('week', Purchase.created_at)
+            date_format = func.date_trunc('week', Purchase.purchase_date)
         elif group_by == "month":
-            date_format = func.date_trunc('month', Purchase.created_at)
+            date_format = func.date_trunc('month', Purchase.purchase_date)
         else:
-            date_format = func.date(Purchase.created_at)
+            date_format = func.date(Purchase.purchase_date)
 
         purchase_data = (
             db.query(
@@ -195,8 +195,8 @@ class AnalyticsCRUD:
             )
             .filter(
                 and_(
-                    Purchase.created_at >= start_date,
-                    Purchase.created_at <= end_date,
+                    Purchase.purchase_date >= start_date,
+                    Purchase.purchase_date <= end_date,
                     Purchase.status == "completed"
                 )
             )
