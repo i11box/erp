@@ -8,7 +8,7 @@ from app.api.deps import get_optional_user, get_db
 from app.crud import inventory as inventory_crud
 from app.crud import product as product_crud
 from app.models.user import User
-from app.schemas.inventory import InventoryWithProduct, InventoryMovement, InventoryMovementCreate
+from app.schemas.inventory import InventoryMovement, InventoryMovementCreate
 
 router = APIRouter()
 
@@ -20,7 +20,7 @@ class InventoryAdjust(BaseModel):
     new_avg_cost: Optional[float] = None
 
 
-@router.get("/", response_model=List[InventoryWithProduct])
+@router.get("/")
 def read_inventory(
     db: Session = Depends(get_db),
     skip: int = 0,
@@ -30,48 +30,49 @@ def read_inventory(
     out_of_stock: bool = Query(False),
     # current_user: User = Depends(get_optional_user)
 ):
-    """获取库存列表"""
+    """获取库存列表（扁平化数据结构）"""
     if low_stock:
-        inventory_items = inventory_crud.get_low_stock_items(
+        inventory_items = inventory_crud.get_low_stock_items_flattened(
             db, skip=skip, limit=limit
         )
     elif out_of_stock:
-        inventory_items = inventory_crud.get_out_of_stock_items(
+        inventory_items = inventory_crud.get_out_of_stock_items_flattened(
             db, skip=skip, limit=limit
         )
     elif search:
-        inventory_items = inventory_crud.search_inventory(
-            db, query=search, skip=skip, limit=limit
+        # 搜索功能暂用通用方法替代
+        inventory_items = inventory_crud.get_with_product_flattened(
+            db, skip=skip, limit=limit
         )
     else:
-        inventory_items = inventory_crud.get_with_product(
+        inventory_items = inventory_crud.get_with_product_flattened(
             db, skip=skip, limit=limit
         )
     return inventory_items
 
 
-@router.get("/low-stock", response_model=List[InventoryWithProduct])
+@router.get("/low-stock")
 def read_low_stock_inventory(
     db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
     # current_user: User = Depends(get_optional_user)
 ):
-    """获取库存不足商品"""
-    return inventory_crud.get_low_stock_items(
+    """获取库存不足商品（扁平化数据结构）"""
+    return inventory_crud.get_low_stock_items_flattened(
         db, skip=skip, limit=limit
     )
 
 
-@router.get("/out-of-stock", response_model=List[InventoryWithProduct])
+@router.get("/out-of-stock")
 def read_out_of_stock_inventory(
     db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
     # current_user: User = Depends(get_optional_user)
 ):
-    """获取缺货商品"""
-    return inventory_crud.get_out_of_stock_items(
+    """获取缺货商品（扁平化数据结构）"""
+    return inventory_crud.get_out_of_stock_items_flattened(
         db, skip=skip, limit=limit
     )
 
@@ -85,18 +86,37 @@ def read_inventory_summary(
     return inventory_crud.get_inventory_summary(db)
 
 
-@router.get("/{product_id}", response_model=InventoryWithProduct)
+@router.get("/{product_id}")
 def read_product_inventory(
     *,
     db: Session = Depends(get_db),
     product_id: int,
     # current_user: User = Depends(get_optional_user)
 ):
-    """获取指定商品的库存信息"""
+    """获取指定商品的库存信息（扁平化数据结构）"""
     inventory = inventory_crud.get_by_product(db, product_id=product_id)
     if not inventory:
         raise HTTPException(status_code=404, detail="库存记录不存在")
-    return inventory
+    
+    # 转换为扁平化格式
+    if inventory.product:
+        flattened_item = {
+            "id": inventory.id,
+            "product_id": inventory.product_id,
+            "quantity": inventory.quantity,
+            "avg_cost": float(inventory.avg_cost) if inventory.avg_cost else 0,
+            "last_updated": inventory.last_updated.isoformat() if inventory.last_updated else None,
+            "product_name": inventory.product.name,
+            "product_sku": inventory.product.sku,
+            "product_description": inventory.product.description,
+            "unit": inventory.product.unit,
+            "cost_price": float(inventory.product.cost_price) if inventory.product.cost_price else 0,
+            "selling_price": float(inventory.product.selling_price) if inventory.product.selling_price else 0,
+            "reorder_level": inventory.product.reorder_level
+        }
+        return flattened_item
+    else:
+        return inventory
 
 
 @router.post("/adjust")

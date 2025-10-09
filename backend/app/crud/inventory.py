@@ -21,6 +21,38 @@ class InventoryCRUD(CRUDBase[Inventory, InventoryCreate, InventoryUpdate]):
             .all()
         )
 
+    def get_with_product_flattened(self, db: Session, *, skip: int = 0, limit: int = 100):
+        """获取库存信息并扁平化产品字段"""
+        results = (
+            db.query(Inventory, Product)
+            .join(Product, Inventory.product_id == Product.id)
+            .order_by(Inventory.last_updated.desc())
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+        
+        flattened_results = []
+        for inventory, product in results:
+            # 将库存和产品信息合并为扁平结构
+            flattened_item = {
+                "id": inventory.id,
+                "product_id": inventory.product_id,
+                "quantity": inventory.quantity,
+                "avg_cost": float(inventory.avg_cost) if inventory.avg_cost else 0,
+                "last_updated": inventory.last_updated.isoformat() if inventory.last_updated else None,
+                "product_name": product.name,
+                "product_sku": product.sku,
+                "product_description": product.description,
+                "unit": product.unit,
+                "cost_price": float(product.cost_price) if product.cost_price else 0,
+                "selling_price": float(product.selling_price) if product.selling_price else 0,
+                "reorder_level": product.reorder_level
+            }
+            flattened_results.append(flattened_item)
+        
+        return flattened_results
+
     def get_low_stock_items(self, db: Session, *, skip: int = 0, limit: int = 100):
         """获取库存不足的商品"""
         return (
@@ -39,6 +71,44 @@ class InventoryCRUD(CRUDBase[Inventory, InventoryCreate, InventoryUpdate]):
             .all()
         )
 
+    def get_low_stock_items_flattened(self, db: Session, *, skip: int = 0, limit: int = 100):
+        """获取库存不足的商品并扁平化产品字段"""
+        results = (
+            db.query(Inventory, Product)
+            .join(Product, Inventory.product_id == Product.id)
+            .filter(
+                or_(
+                    Inventory.quantity <= Product.reorder_level,
+                    Inventory.quantity == 0
+                )
+            )
+            .order_by(Inventory.quantity.asc())
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+        
+        flattened_results = []
+        for inventory, product in results:
+            # 将库存和产品信息合并为扁平结构
+            flattened_item = {
+                "id": inventory.id,
+                "product_id": inventory.product_id,
+                "quantity": inventory.quantity,
+                "avg_cost": float(inventory.avg_cost) if inventory.avg_cost else 0,
+                "last_updated": inventory.last_updated.isoformat() if inventory.last_updated else None,
+                "product_name": product.name,
+                "product_sku": product.sku,
+                "product_description": product.description,
+                "unit": product.unit,
+                "cost_price": float(product.cost_price) if product.cost_price else 0,
+                "selling_price": float(product.selling_price) if product.selling_price else 0,
+                "reorder_level": product.reorder_level
+            }
+            flattened_results.append(flattened_item)
+        
+        return flattened_results
+
     def get_out_of_stock_items(self, db: Session, *, skip: int = 0, limit: int = 100):
         """获取缺货商品"""
         return (
@@ -50,6 +120,39 @@ class InventoryCRUD(CRUDBase[Inventory, InventoryCreate, InventoryUpdate]):
             .limit(limit)
             .all()
         )
+
+    def get_out_of_stock_items_flattened(self, db: Session, *, skip: int = 0, limit: int = 100):
+        """获取缺货商品并扁平化产品字段"""
+        results = (
+            db.query(Inventory, Product)
+            .join(Product, Inventory.product_id == Product.id)
+            .filter(Inventory.quantity == 0)
+            .order_by(Inventory.last_updated.desc())
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+        
+        flattened_results = []
+        for inventory, product in results:
+            # 将库存和产品信息合并为扁平结构
+            flattened_item = {
+                "id": inventory.id,
+                "product_id": inventory.product_id,
+                "quantity": inventory.quantity,
+                "avg_cost": float(inventory.avg_cost) if inventory.avg_cost else 0,
+                "last_updated": inventory.last_updated.isoformat() if inventory.last_updated else None,
+                "product_name": product.name,
+                "product_sku": product.sku,
+                "product_description": product.description,
+                "unit": product.unit,
+                "cost_price": float(product.cost_price) if product.cost_price else 0,
+                "selling_price": float(product.selling_price) if product.selling_price else 0,
+                "reorder_level": product.reorder_level
+            }
+            flattened_results.append(flattened_item)
+        
+        return flattened_results
 
     def create_or_update(self, db: Session, *, product_id: int, quantity: int, avg_cost: float = 0):
         """创建或更新库存记录"""
