@@ -50,7 +50,7 @@
         </el-table-column>
         <el-table-column prop="total_amount" label="总金额">
           <template #default="scope">
-            ¥{{ (scope.row.total_amount || 0).toFixed(2) }}
+            ¥{{ Number(scope.row.total_amount || 0).toFixed(2) }}
           </template>
         </el-table-column>
         <el-table-column prop="status" label="状态">

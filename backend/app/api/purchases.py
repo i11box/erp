@@ -12,7 +12,7 @@ from app.schemas.purchase import PurchaseItem as PurchaseItemSchema
 router = APIRouter()
 
 
-@router.get("/", response_model=List[Purchase])
+@router.get("/")
 def read_purchases(
     db: Session = Depends(get_db),
     skip: int = 0,
@@ -24,25 +24,25 @@ def read_purchases(
 ):
     """获取采购订单列表"""
     if supplier_id:
-        purchases = purchase_crud.get_by_supplier(
+        purchases = purchase_crud.get_by_supplier_flattened(
             db, supplier_id=supplier_id, skip=skip, limit=limit
         )
     elif status:
-        purchases = purchase_crud.get_by_status(
+        purchases = purchase_crud.get_by_status_flattened(
             db, status=status, skip=skip, limit=limit
         )
     elif search:
-        purchases = purchase_crud.search_purchases(
+        purchases = purchase_crud.search_purchases_flattened(
             db, query=search, skip=skip, limit=limit
         )
     else:
-        purchases = purchase_crud.get_multi_with_items(
+        purchases = purchase_crud.get_multi_with_items_flattened(
             db, skip=skip, limit=limit
         )
     return purchases
 
 
-@router.post("/", response_model=Purchase)
+@router.post("/")
 def create_purchase(
     *,
     db: Session = Depends(get_db),
@@ -63,10 +63,36 @@ def create_purchase(
     purchase = purchase_crud.create_purchase_with_items(
         db, purchase_in=purchase_in, user_id= None #current_user.id if current_user else None
     )
-    return purchase
+    
+    # Return flattened version
+    flattened_purchase = {
+        "id": purchase.id,
+        "supplier_id": purchase.supplier_id,
+        "user_id": purchase.user_id,
+        "purchase_number": purchase.purchase_number,
+        "purchase_date": purchase.purchase_date.isoformat() if purchase.purchase_date else None,
+        "total_amount": float(purchase.total_amount) if purchase.total_amount else 0,
+        "status": purchase.status,
+        "created_at": purchase.created_at.isoformat() if purchase.created_at else None,
+        "updated_at": purchase.updated_at.isoformat() if purchase.updated_at else None,
+        "items": [
+            {
+                "id": item.id,
+                "purchase_id": item.purchase_id,
+                "product_id": item.product_id,
+                "quantity": item.quantity,
+                "unit_price": float(item.unit_price) if item.unit_price else 0,
+                "total_price": float(item.total_price) if item.total_price else 0,
+                "product_name": item.product.name if item.product else None,
+                "product_sku": item.product.sku if item.product else None
+            }
+            for item in purchase.items
+        ]
+    }
+    return flattened_purchase
 
 
-@router.get("/{purchase_id}", response_model=Purchase)
+@router.get("/{purchase_id}")
 def read_purchase(
     *,
     db: Session = Depends(get_db),
@@ -77,10 +103,36 @@ def read_purchase(
     purchase = purchase_crud.get_with_items(db, id=purchase_id)
     if not purchase:
         raise HTTPException(status_code=404, detail="采购订单不存在")
-    return purchase
+    
+    # Return flattened version
+    flattened_purchase = {
+        "id": purchase.id,
+        "supplier_id": purchase.supplier_id,
+        "user_id": purchase.user_id,
+        "purchase_number": purchase.purchase_number,
+        "purchase_date": purchase.purchase_date.isoformat() if purchase.purchase_date else None,
+        "total_amount": float(purchase.total_amount) if purchase.total_amount else 0,
+        "status": purchase.status,
+        "created_at": purchase.created_at.isoformat() if purchase.created_at else None,
+        "updated_at": purchase.updated_at.isoformat() if purchase.updated_at else None,
+        "items": [
+            {
+                "id": item.id,
+                "purchase_id": item.purchase_id,
+                "product_id": item.product_id,
+                "quantity": item.quantity,
+                "unit_price": float(item.unit_price) if item.unit_price else 0,
+                "total_price": float(item.total_price) if item.total_price else 0,
+                "product_name": item.product.name if item.product else None,
+                "product_sku": item.product.sku if item.product else None
+            }
+            for item in purchase.items
+        ]
+    }
+    return flattened_purchase
 
 
-@router.put("/{purchase_id}", response_model=Purchase)
+@router.put("/{purchase_id}")
 def update_purchase(
     *,
     db: Session = Depends(get_db),
@@ -99,28 +151,51 @@ def update_purchase(
             purchase = purchase_crud.update_status(
                 db, db_obj=purchase, status=purchase_in.status
             )
-    else:
-        purchase = purchase_crud.update_purchase_with_items(
-            db, db_obj=purchase, purchase_in=purchase_in
-        )
-    return purchase
+    
+    db.refresh(purchase)
+    
+    # Return flattened version
+    flattened_purchase = {
+        "id": purchase.id,
+        "supplier_id": purchase.supplier_id,
+        "user_id": purchase.user_id,
+        "purchase_number": purchase.purchase_number,
+        "purchase_date": purchase.purchase_date.isoformat() if purchase.purchase_date else None,
+        "total_amount": float(purchase.total_amount) if purchase.total_amount else 0,
+        "status": purchase.status,
+        "created_at": purchase.created_at.isoformat() if purchase.created_at else None,
+        "updated_at": purchase.updated_at.isoformat() if purchase.updated_at else None,
+        "items": []
+    }
+    return flattened_purchase
 
 
-@router.delete("/{purchase_id}")
-def delete_purchase(
+@router.patch("/{purchase_id}/status")
+def update_purchase_status(
     *,
     db: Session = Depends(get_db),
     purchase_id: int,
+    status: str,
     # current_user: User = Depends(get_optional_user)
 ):
-    """删除采购订单"""
+    """更新采购订单状态"""
     purchase = purchase_crud.get(db, id=purchase_id)
     if not purchase:
         raise HTTPException(status_code=404, detail="采购订单不存在")
     
-    # Don't allow deleting completed purchases
-    if purchase.status == "completed":
-        raise HTTPException(status_code=400, detail="已完成的采购订单不能删除")
+    purchase = purchase_crud.update_status(db, db_obj=purchase, status=status)
     
-    purchase_crud.remove(db, id=purchase_id)
-    return {"message": "采购订单删除成功"}
+    # Return flattened version
+    flattened_purchase = {
+        "id": purchase.id,
+        "supplier_id": purchase.supplier_id,
+        "user_id": purchase.user_id,
+        "purchase_number": purchase.purchase_number,
+        "purchase_date": purchase.purchase_date.isoformat() if purchase.purchase_date else None,
+        "total_amount": float(purchase.total_amount) if purchase.total_amount else 0,
+        "status": purchase.status,
+        "created_at": purchase.created_at.isoformat() if purchase.created_at else None,
+        "updated_at": purchase.updated_at.isoformat() if purchase.updated_at else None,
+        "items": []
+    }
+    return flattened_purchase

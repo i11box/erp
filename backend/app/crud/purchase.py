@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_
 from app.models.purchase import Purchase, PurchaseItem
 from app.models.supplier import Supplier
+from app.models.product import Product
 from app.models.inventory import Inventory
 from app.models.inventory import InventoryMovement
 from app.schemas.purchase import PurchaseCreate, PurchaseUpdate, PurchaseItemCreate
@@ -97,17 +98,103 @@ class PurchaseCRUD(CRUDBase[Purchase, PurchaseCreate, PurchaseUpdate]):
             .first()
         )
 
-    def get_multi_with_items(
-        self, db: Session, *, skip: int = 0, limit: int = 100
-    ) -> List[Purchase]:
-        return (
-            db.query(self.model)
-            .options(joinedload(Purchase.items))
+    def get_with_items_flattened(self, db: Session, *, skip: int = 0, limit: int = 100):
+        """获取采购订单信息并扁平化供应商和商品字段"""
+        results = (
+            db.query(Purchase, Supplier)
+            .join(Supplier, Purchase.supplier_id == Supplier.id)
             .order_by(Purchase.created_at.desc())
             .offset(skip)
             .limit(limit)
             .all()
         )
+        
+        flattened_results = []
+        for purchase, supplier in results:
+            # 将采购订单和供应商信息合并为扁平结构
+            flattened_item = {
+                "id": purchase.id,
+                "supplier_id": purchase.supplier_id,
+                "user_id": purchase.user_id,
+                "purchase_number": purchase.purchase_number,
+                "purchase_date": purchase.purchase_date.isoformat() if purchase.purchase_date else None,
+                "total_amount": float(purchase.total_amount) if purchase.total_amount else 0,
+                "status": purchase.status,
+                "created_at": purchase.created_at.isoformat() if purchase.created_at else None,
+                "updated_at": purchase.updated_at.isoformat() if purchase.updated_at else None,
+                "supplier_name": supplier.name,
+                "items": []
+            }
+            
+            # 处理订单项
+            for item in purchase.items:
+                item_dict = {
+                    "id": item.id,
+                    "purchase_id": item.purchase_id,
+                    "product_id": item.product_id,
+                    "quantity": item.quantity,
+                    "unit_price": float(item.unit_price) if item.unit_price else 0,
+                    "total_price": float(item.total_price) if item.total_price else 0
+                }
+                
+                # 如果有产品信息，添加产品详情
+                if item.product:
+                    item_dict.update({
+                        "product_name": item.product.name,
+                        "product_sku": item.product.sku,
+                        "product_description": item.product.description,
+                        "unit": item.product.unit
+                    })
+                
+                flattened_item["items"].append(item_dict)
+            
+            flattened_results.append(flattened_item)
+        
+        return flattened_results
+
+    def get_multi_with_items(
+        self, db: Session, *, skip: int = 0, limit: int = 100
+    ) -> List[Purchase]:
+        return (
+            db.query(self.model)
+            .options(joinedload(Purchase.items).joinedload(PurchaseItem.product))
+            .order_by(Purchase.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+
+    def get_multi_with_items_flattened(
+        self, db: Session, *, skip: int = 0, limit: int = 100
+    ):
+        """获取采购订单列表并扁平化供应商字段"""
+        results = (
+            db.query(Purchase, Supplier)
+            .join(Supplier, Purchase.supplier_id == Supplier.id)
+            .order_by(Purchase.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+        
+        flattened_results = []
+        for purchase, supplier in results:
+            # 将采购订单和供应商信息合并为扁平结构
+            flattened_item = {
+                "id": purchase.id,
+                "supplier_id": purchase.supplier_id,
+                "user_id": purchase.user_id,
+                "purchase_number": purchase.purchase_number,
+                "purchase_date": purchase.purchase_date.isoformat() if purchase.purchase_date else None,
+                "total_amount": float(purchase.total_amount) if purchase.total_amount else 0,
+                "status": purchase.status,
+                "created_at": purchase.created_at.isoformat() if purchase.created_at else None,
+                "updated_at": purchase.updated_at.isoformat() if purchase.updated_at else None,
+                "supplier_name": supplier.name
+            }
+            flattened_results.append(flattened_item)
+        
+        return flattened_results
 
     def update_status(
         self, db: Session, *, db_obj: Purchase, status: str
@@ -130,6 +217,39 @@ class PurchaseCRUD(CRUDBase[Purchase, PurchaseCreate, PurchaseUpdate]):
             .all()
         )
 
+    def get_by_supplier_flattened(
+        self, db: Session, *, supplier_id: int, skip: int = 0, limit: int = 100
+    ):
+        """根据供应商获取采购订单列表并扁平化供应商字段"""
+        results = (
+            db.query(Purchase, Supplier)
+            .join(Supplier, Purchase.supplier_id == Supplier.id)
+            .filter(Purchase.supplier_id == supplier_id)
+            .order_by(Purchase.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+        
+        flattened_results = []
+        for purchase, supplier in results:
+            # 将采购订单和供应商信息合并为扁平结构
+            flattened_item = {
+                "id": purchase.id,
+                "supplier_id": purchase.supplier_id,
+                "user_id": purchase.user_id,
+                "purchase_number": purchase.purchase_number,
+                "purchase_date": purchase.purchase_date.isoformat() if purchase.purchase_date else None,
+                "total_amount": float(purchase.total_amount) if purchase.total_amount else 0,
+                "status": purchase.status,
+                "created_at": purchase.created_at.isoformat() if purchase.created_at else None,
+                "updated_at": purchase.updated_at.isoformat() if purchase.updated_at else None,
+                "supplier_name": supplier.name
+            }
+            flattened_results.append(flattened_item)
+        
+        return flattened_results
+
     def get_by_status(
         self, db: Session, *, status: str, skip: int = 0, limit: int = 100
     ) -> List[Purchase]:
@@ -141,6 +261,39 @@ class PurchaseCRUD(CRUDBase[Purchase, PurchaseCreate, PurchaseUpdate]):
             .limit(limit)
             .all()
         )
+
+    def get_by_status_flattened(
+        self, db: Session, *, status: str, skip: int = 0, limit: int = 100
+    ):
+        """根据状态获取采购订单列表并扁平化供应商字段"""
+        results = (
+            db.query(Purchase, Supplier)
+            .join(Supplier, Purchase.supplier_id == Supplier.id)
+            .filter(Purchase.status == status)
+            .order_by(Purchase.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+        
+        flattened_results = []
+        for purchase, supplier in results:
+            # 将采购订单和供应商信息合并为扁平结构
+            flattened_item = {
+                "id": purchase.id,
+                "supplier_id": purchase.supplier_id,
+                "user_id": purchase.user_id,
+                "purchase_number": purchase.purchase_number,
+                "purchase_date": purchase.purchase_date.isoformat() if purchase.purchase_date else None,
+                "total_amount": float(purchase.total_amount) if purchase.total_amount else 0,
+                "status": purchase.status,
+                "created_at": purchase.created_at.isoformat() if purchase.created_at else None,
+                "updated_at": purchase.updated_at.isoformat() if purchase.updated_at else None,
+                "supplier_name": supplier.name
+            }
+            flattened_results.append(flattened_item)
+        
+        return flattened_results
 
     def search_purchases(
         self, db: Session, *, query: str, skip: int = 0, limit: int = 100
@@ -159,6 +312,44 @@ class PurchaseCRUD(CRUDBase[Purchase, PurchaseCreate, PurchaseUpdate]):
             .limit(limit)
             .all()
         )
+
+    def search_purchases_flattened(
+        self, db: Session, *, query: str, skip: int = 0, limit: int = 100
+    ):
+        """搜索采购订单并扁平化供应商字段"""
+        results = (
+            db.query(Purchase, Supplier)
+            .join(Supplier, Purchase.supplier_id == Supplier.id)
+            .filter(
+                or_(
+                    Purchase.purchase_number.contains(query),
+                    Supplier.name.contains(query)
+                )
+            )
+            .order_by(Purchase.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+        
+        flattened_results = []
+        for purchase, supplier in results:
+            # 将采购订单和供应商信息合并为扁平结构
+            flattened_item = {
+                "id": purchase.id,
+                "supplier_id": purchase.supplier_id,
+                "user_id": purchase.user_id,
+                "purchase_number": purchase.purchase_number,
+                "purchase_date": purchase.purchase_date.isoformat() if purchase.purchase_date else None,
+                "total_amount": float(purchase.total_amount) if purchase.total_amount else 0,
+                "status": purchase.status,
+                "created_at": purchase.created_at.isoformat() if purchase.created_at else None,
+                "updated_at": purchase.updated_at.isoformat() if purchase.updated_at else None,
+                "supplier_name": supplier.name
+            }
+            flattened_results.append(flattened_item)
+        
+        return flattened_results
 
 
 # Create a singleton instance

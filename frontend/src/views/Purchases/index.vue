@@ -41,7 +41,7 @@
         </el-table-column>
         <el-table-column prop="total_amount" label="总金额">
           <template #default="scope">
-            ¥{{ (scope.row.total_amount || 0).toFixed(2) }}
+            ¥{{ Number(scope.row.total_amount || 0).toFixed(2) }}
           </template>
         </el-table-column>
         <el-table-column prop="status" label="状态">
@@ -233,7 +233,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, onBeforeUnmount, computed } from 'vue'
-import { ElMessage} from 'element-plus'
+import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import api from '@/services/api'
@@ -288,6 +288,9 @@ const currentPage = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
 
+// 添加一个用于跟踪组件是否已卸载的ref
+const isComponentMounted = ref(true)
+
 const formRef = ref<FormInstance>()
 const form = reactive({
   id: 0,
@@ -311,6 +314,9 @@ const totalAmount = computed(() => {
 })
 
 const getPurchases = async () => {
+  // 检查组件是否仍然挂载
+  if (!isComponentMounted.value) return;
+  
   loading.value = true
   try {
     const response = await api.get('/purchases', {
@@ -321,6 +327,9 @@ const getPurchases = async () => {
         status: statusFilter.value || undefined
       }
     })
+    
+    // 检查组件是否仍然挂载
+    if (!isComponentMounted.value) return;
     
     // Handle both array and paginated response
     if (Array.isArray(response)) {
@@ -334,6 +343,9 @@ const getPurchases = async () => {
       total.value = 0
     }
   } catch (error: any) {
+    // 检查组件是否仍然挂载
+    if (!isComponentMounted.value) return;
+    
     console.error('获取采购订单列表失败:', error)
     // Check if it's an auth error
     if (error.response?.status === 401) {
@@ -344,6 +356,8 @@ const getPurchases = async () => {
     purchases.value = []
     total.value = 0
   } finally {
+    // 检查组件是否仍然挂载
+    if (!isComponentMounted.value) return;
     loading.value = false
   }
 }
@@ -390,24 +404,24 @@ const showAddDialog = () => {
 const editPurchase = async (purchase: Purchase) => {
   isEdit.value = true
   try {
-    const token = authStore.token
-    const response = await fetch(`/api/purchases/${purchase.id}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+    // 使用统一的api实例替代原生fetch
+    const response = await api.get(`/purchases/${purchase.id}`)
+    
+    // 检查组件是否仍然挂载
+    if (!isComponentMounted.value) return;
+    
+    Object.assign(form, {
+      id: response.id,
+      supplier_id: response.supplier_id,
+      order_date: new Date(response.order_date),
+      notes: response.notes || '',
+      items: response.items
     })
-    if (response.ok) {
-      const data = await response.json()
-      Object.assign(form, {
-        id: data.id,
-        supplier_id: data.supplier_id,
-        order_date: new Date(data.order_date),
-        notes: data.notes || '',
-        items: data.items
-      })
-      dialogVisible.value = true
-    }
+    dialogVisible.value = true
   } catch (error) {
+    // 检查组件是否仍然挂载
+    if (!isComponentMounted.value) return;
+    
     console.error('获取采购订单详情失败:', error)
     ElMessage.error('获取采购订单详情失败')
   }
@@ -415,19 +429,19 @@ const editPurchase = async (purchase: Purchase) => {
 
 const viewPurchase = async (purchase: Purchase) => {
   try {
-    const token = authStore.token
-    const response = await fetch(`/api/purchases/${purchase.id}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-    if (response.ok) {
-      const data = await response.json()
-      selectedPurchase.value = data
-      selectedPurchaseItems.value = data.items
-      detailVisible.value = true
-    }
+    // 使用统一的api实例替代原生fetch
+    const response = await api.get(`/purchases/${purchase.id}`)
+    
+    // 检查组件是否仍然挂载
+    if (!isComponentMounted.value) return;
+    
+    selectedPurchase.value = response
+    selectedPurchaseItems.value = response.items
+    detailVisible.value = true
   } catch (error) {
+    // 检查组件是否仍然挂载
+    if (!isComponentMounted.value) return;
+    
     console.error('获取采购订单详情失败:', error)
     ElMessage.error('获取采购订单详情失败')
   }
@@ -486,36 +500,38 @@ const handleSubmit = async () => {
     if (valid) {
       submitting.value = true
       try {
-        const token = authStore.token
-        const url = isEdit.value ? `/api/purchases/${form.id}` : '/api/purchases/'
-        const method = isEdit.value ? 'PUT' : 'POST'
-
-        const response = await fetch(url, {
-          method,
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
+        let response;
+        if (isEdit.value) {
+          response = await api.put(`/purchases/${form.id}`, {
             supplier_id: form.supplier_id,
             order_date: form.order_date.toISOString().split('T')[0],
             notes: form.notes,
             items: form.items
           })
-        })
-
-        if (response.ok) {
-          ElMessage.success(isEdit.value ? '采购订单更新成功' : '采购订单创建成功')
-          dialogVisible.value = false
-          getPurchases()
         } else {
-          const error = await response.json()
-          ElMessage.error(error.detail || '操作失败')
+          response = await api.post('/purchases/', {
+            supplier_id: form.supplier_id,
+            order_date: form.order_date.toISOString().split('T')[0],
+            notes: form.notes,
+            items: form.items
+          })
         }
-      } catch (error) {
+        
+        // 检查组件是否仍然挂载
+        if (!isComponentMounted.value) return;
+
+        ElMessage.success(isEdit.value ? '采购订单更新成功' : '采购订单创建成功')
+        dialogVisible.value = false
+        getPurchases()
+      } catch (error: any) {
+        // 检查组件是否仍然挂载
+        if (!isComponentMounted.value) return;
+        
         console.error('操作失败:', error)
-        ElMessage.error('操作失败')
+        ElMessage.error(error.response?.data?.detail || '操作失败')
       } finally {
+        // 检查组件是否仍然挂载
+        if (!isComponentMounted.value) return;
         submitting.value = false
       }
     }
@@ -524,26 +540,20 @@ const handleSubmit = async () => {
 
 const updateStatus = async (purchase: Purchase, status: string) => {
   try {
-    const token = authStore.token
-    const response = await fetch(`/api/purchases/${purchase.id}/status`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({ status })
-    })
-
-    if (response.ok) {
-      ElMessage.success('订单状态更新成功')
-      getPurchases()
-    } else {
-      const error = await response.json()
-      ElMessage.error(error.detail || '状态更新失败')
-    }
-  } catch (error) {
+    // 使用统一的api实例替代原生fetch
+    await api.patch(`/purchases/${purchase.id}/status`, { status })
+    
+    // 检查组件是否仍然挂载
+    if (!isComponentMounted.value) return;
+    
+    ElMessage.success('订单状态更新成功')
+    getPurchases()
+  } catch (error: any) {
+    // 检查组件是否仍然挂载
+    if (!isComponentMounted.value) return;
+    
     console.error('状态更新失败:', error)
-    ElMessage.error('状态更新失败')
+    ElMessage.error(error.response?.data?.detail || '状态更新失败')
   }
 }
 
@@ -565,22 +575,21 @@ const getStatusText = (status: string) => {
   }
 }
 
-// const formatDate = (dateString: string) => {
-//   return new Date(dateString).toLocaleDateString()
-// }
-
-const formatDate = (dateString?: string) => {
-  if (!dateString) return '-'
+const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString()
 }
 
 onMounted(() => {
+  isComponentMounted.value = true;
   getPurchases()
   getSuppliers()
   getProducts()
 })
 
 onBeforeUnmount(() => {
+  // 标记组件已卸载
+  isComponentMounted.value = false;
+  
   // 清理组件状态
   loading.value = false
   submitting.value = false
