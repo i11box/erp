@@ -576,7 +576,10 @@ const getStatusText = (status: string) => {
 }
 
 const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString()
+  if (!dateString) return '-'
+  const date = new Date(dateString)
+  if (isNaN(date.getTime())) return 'Invalid Date'
+  return date.toLocaleDateString('zh-CN')
 }
 
 onMounted(() => {
