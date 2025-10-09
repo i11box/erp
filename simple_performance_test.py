@@ -36,6 +36,7 @@ class ERPPerformanceTester:
                 return True
             else:
                 print(f"❌ 登录失败: {response.status_code}")
+                print(f"响应内容: {response.text}")
                 return False
         except Exception as e:
             print(f"❌ 登录异常: {e}")

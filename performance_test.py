@@ -14,8 +14,8 @@ class ERPUser(HttpUser):
     def on_start(self):
         """用户开始时执行登录"""
         response = self.client.post("/api/auth/login", json={
-            "username": "admin",
-            "password": "admin123"
+            "username": "manager1",
+            "password": "manager123"
         })
 
         if response.status_code == 200:
@@ -27,6 +27,7 @@ class ERPUser(HttpUser):
             }
         else:
             print("登录失败，无法进行性能测试")
+            print(f"状态码: {response.status_code}, 响应: {response.text}")
             self.token = None
             self.headers = {}
 
@@ -90,8 +91,8 @@ class AdminUser(HttpUser):
     def on_start(self):
         """管理员用户登录"""
         response = self.client.post("/api/auth/login", json={
-            "username": "admin",
-            "password": "admin123"
+            "username": "manager1",
+            "password": "manager123"
         })
 
         if response.status_code == 200:
@@ -103,6 +104,7 @@ class AdminUser(HttpUser):
             }
         else:
             print("管理员登录失败")
+            print(f"状态码: {response.status_code}, 响应: {response.text}")
             self.token = None
             self.headers = {}
 
@@ -112,11 +114,6 @@ class AdminUser(HttpUser):
         if self.token:
             endpoints = [
                 "/api/analytics/dashboard",
-                "/api/analytics/sales-report",
-                "/api/analytics/purchase-report",
-                "/api/analytics/top-products",
-                "/api/analytics/top-customers",
-                "/api/analytics/profit-analysis"
             ]
             endpoint = random.choice(endpoints)
             self.client.get(endpoint, headers=self.headers)
@@ -129,7 +126,6 @@ class AdminUser(HttpUser):
                 "/api/inventory/",
                 "/api/inventory/low-stock",
                 "/api/inventory/summary",
-                "/api/inventory/movements/"
             ]
             endpoint = random.choice(endpoints)
             self.client.get(endpoint, headers=self.headers)
@@ -156,7 +152,10 @@ if __name__ == "__main__":
     print("- 普通用户: 主要查看各种列表和仪表板")
     print("- 管理员: 查看分析报表和库存管理")
     print("")
-    print("建议测试参数:")
-    print("- 用户数量: 10-50")
-    print(-" 每秒用户增长: 1-2")
-    print("- 测试时间: 5-10分钟")
+    print("笔记本电脑推荐测试参数:")
+    print("- 用户数量: 5-10 (避免过多用户导致系统资源耗尽)")
+    print("- 每秒用户增长: 1 (缓慢增长避免瞬间压力过大)")
+    print("- 测试时间: 2-3分钟 (快速获得结果)")
+    print("")
+    print("快速测试命令示例:")
+    print("  locust -f performance_test.py --headless -u 5 -r 1 --run-time 2m --host http://localhost:8000")
